@@ -170,6 +170,9 @@ class Server {
 				);
 				$this->server->addPlugin(
 					new QuotaPlugin($view));
+
+				$this->server->addPlugin(
+					new \OCA\DAV\Files\BundlingPlugin($view));
 			}
 		});
 	}
