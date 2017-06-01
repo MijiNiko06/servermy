@@ -21,10 +21,11 @@
 
 use Behat\Gherkin\Node\PyStringNode;
 use Behat\Gherkin\Node\TableNode;
-use GuzzleHttp\Message\ResponseInterface;
 use GuzzleHttp\Ring\Exception\ConnectException;
 use GuzzleHttp\Stream\StreamInterface;
 use Guzzle\Http\Exception\BadResponseException;
+use PHPUnit\Framework\Assert;
+use Psr\Http\Message\ResponseInterface;
 use TestHelpers\OcsApiHelper;
 use TestHelpers\SetupHelper;
 use TestHelpers\UploadHelper;
@@ -50,7 +51,8 @@ trait WebDav {
 	private $usingOldDavPath = true;
 
 	/**
-	 * @var ResponseInterface[]
+	 * @var array ResponseInterface with keys 'response' and
+	 *                              'upload_type' string text describing the type of upload
 	 */
 	private $uploadResponses;
 
@@ -940,7 +942,20 @@ trait WebDav {
 			$returnedHeader = $this->response->getHeader($headerName);
 			$expectedHeaderValue = $this->substituteInLineCodes($expectedHeaderValue);
 
-			if ($returnedHeader !== $expectedHeaderValue) {
+			if (\is_array($returnedHeader)) {
+				if (empty($returnedHeader)) {
+					throw new \Exception(
+						\sprintf(
+							"Missing expected header '%s'",
+							$headerName
+						)
+					);
+				}
+				$headerValue = $returnedHeader[0];
+			} else {
+				$headerValue = $returnedHeader;
+			}
+			if ($headerValue !== $expectedHeaderValue) {
 				throw new \Exception(
 					\sprintf(
 						"Expected value '%s' for header '%s', got '%s'",
@@ -982,11 +997,13 @@ trait WebDav {
 	 * @return void
 	 */
 	public function jobStatusValuesShouldMatchRegEx($user, $table) {
-		$url = $this->response->getHeader("OC-JobStatus-Location");
+		$headerArray = $this->response->getHeader("OC-JobStatus-Location");
+		$url = $headerArray[0];
 		$url = $this->getBaseUrlWithoutPath() . $url;
 		$response = HttpRequestHelper::get($url, $user, $this->getPasswordForUser($user));
-		$result = \json_decode($response->getBody()->getContents(), true);
-		PHPUnit\Framework\Assert::assertNotNull($result, "'$response' is not valid JSON");
+		$contents = $response->getBody()->getContents();
+		$result = \json_decode($contents, true);
+		PHPUnit\Framework\Assert::assertNotNull($result, "'$contents' is not valid JSON");
 		foreach ($table->getTable() as $row) {
 			$expectedKey = $row[0];
 			PHPUnit\Framework\Assert::assertArrayHasKey(
@@ -1168,12 +1185,7 @@ trait WebDav {
 	 * @return void
 	 */
 	public function userUploadsAFileTo($user, $source, $destination) {
-		$file = \GuzzleHttp\Stream\Stream::factory(
-			\fopen(
-				$this->acceptanceTestsDirLocation() . $source,
-				'r'
-			)
-		);
+		$file = \fopen($this->acceptanceTestsDirLocation() . $source, 'r');
 		$this->pauseUploadDelete();
 		$this->response = $this->makeDavRequest(
 			$user, "PUT", $destination, [], $file
@@ -1398,8 +1410,8 @@ trait WebDav {
 		foreach ($this->uploadResponses as $response) {
 			PHPUnit\Framework\Assert::assertEquals(
 				$statusCode,
-				$response->getStatusCode(),
-				'Response for ' . $response->getEffectiveUrl() . ' did not return expected status code'
+				$response['response']->getStatusCode(),
+				'Response for dav upload ' . $response['upload_type'] . ' did not return expected status code'
 			);
 		}
 	}
@@ -1463,13 +1475,13 @@ trait WebDav {
 		foreach ($this->uploadResponses as $response) {
 			PHPUnit\Framework\Assert::assertGreaterThanOrEqual(
 				$minStatusCode,
-				$response->getStatusCode(),
-				'Response for ' . $response->getEffectiveUrl() . ' did not return expected status code'
+				$response['response']->getStatusCode(),
+				'Response for dav upload ' . $response['upload_type'] . ' did not return expected status code'
 			);
 			PHPUnit\Framework\Assert::assertLessThanOrEqual(
 				$maxStatusCode,
-				$response->getStatusCode(),
-				'Response for ' . $response->getEffectiveUrl() . ' did not return expected status code'
+				$response['response']->getStatusCode(),
+				'Response for dav upload ' . $response['upload_type'] . ' did not return expected status code'
 			);
 		}
 	}
@@ -1576,10 +1588,9 @@ trait WebDav {
 	public function userUploadsAFileWithContentTo(
 		$user, $content, $destination
 	) {
-		$file = \GuzzleHttp\Stream\Stream::factory($content);
 		$this->pauseUploadDelete();
 		$this->response = $this->makeDavRequest(
-			$user, "PUT", $destination, [], $file
+			$user, "PUT", $destination, [], $content
 		);
 		$this->lastUploadDeleteTime = \time();
 		return $this->response->getHeader('oc-fileid');
@@ -1599,14 +1610,13 @@ trait WebDav {
 	public function userUploadsAFileWithChecksumAndContentTo(
 		$user, $checksum, $content, $destination
 	) {
-		$file = \GuzzleHttp\Stream\Stream::factory($content);
 		$this->pauseUploadDelete();
 		$this->response = $this->makeDavRequest(
 			$user,
 			"PUT",
 			$destination,
 			['OC-Checksum' => $checksum],
-			$file
+			$content
 		);
 		$this->lastUploadDeleteTime = \time();
 	}
@@ -1794,7 +1804,6 @@ trait WebDav {
 		$user, $num, $total, $data, $destination
 	) {
 		$num -= 1;
-		$data = \GuzzleHttp\Stream\Stream::factory($data);
 		$file = "$destination-chunking-42-$total-$num";
 		$this->pauseUploadDelete();
 		$this->response = $this->makeDavRequest(
@@ -1893,7 +1902,6 @@ trait WebDav {
 	 * @return void
 	 */
 	public function userUploadsNewChunkFileOfWithToId($user, $num, $data, $id) {
-		$data = \GuzzleHttp\Stream\Stream::factory($data);
 		$destination = "/uploads/$user/$id/$num";
 		$this->response = $this->makeDavRequest(
 			$user, 'PUT', $destination, [], $data, "uploads"
@@ -2075,12 +2083,17 @@ trait WebDav {
 		foreach ($table->getTable() as $header) {
 			$headerName = $header[0];
 			$headerValue = $this->response->getHeader($headerName);
-			//Note: according to the documentation of getHeader it must return null
-			//if the header does not exist, but its returning an empty string
+			//Note: getHeader returns an empty array if the named header does not exist
+			if (isset($headerValue[0])) {
+				$headerValue0 = $headerValue[0];
+			} else {
+				$headerValue0 = '';
+			}
+
 			PHPUnit\Framework\Assert::assertEmpty(
 				$headerValue,
 				"header $headerName should not exist " .
-				"but does and is set to $headerValue"
+				"but does and is set to $headerValue0"
 			);
 		}
 	}
@@ -2101,8 +2114,9 @@ trait WebDav {
 				$expectedHeaderValue, ['preg_quote' => ['/'] ]
 			);
 			
-			$returnedHeader = $this->response->getHeader($headerName);
-			PHPUnit\Framework\Assert::assertNotFalse(
+			$returnedHeaders = $this->response->getHeader($headerName);
+			$returnedHeader = $returnedHeaders[0];
+			Assert::assertNotFalse(
 				(bool)\preg_match($expectedHeaderValue, $returnedHeader),
 				"'$expectedHeaderValue' does not match '$returnedHeader'"
 			);
@@ -2172,7 +2186,7 @@ trait WebDav {
 	 */
 	public function userFileShouldHaveStoredId($user, $path) {
 		$currentFileID = $this->getFileIdForPath($user, $path);
-		PHPUnit\Framework\Assert::assertEquals(
+		Assert::assertEquals(
 			$currentFileID, $this->storedFileID
 		);
 	}
@@ -2211,12 +2225,12 @@ trait WebDav {
 				$expectedFile[0]
 			);
 			if ($should) {
-				PHPUnit\Framework\Assert::assertNotEmpty(
+				Assert::assertNotEmpty(
 					$fileFound,
 					"response does not contain the entry '$expectedFile[0]'"
 				);
 			} else {
-				PHPUnit\Framework\Assert::assertFalse(
+				Assert::assertFalse(
 					$fileFound,
 					"response does contain the entry '$expectedFile[0]' but should not"
 				);
@@ -2243,7 +2257,7 @@ trait WebDav {
 		if ($multistatusResults === null) {
 			$multistatusResults = [];
 		}
-		PHPUnit\Framework\Assert::assertEquals((int)$numFiles, \count($multistatusResults));
+		Assert::assertEquals((int)$numFiles, \count($multistatusResults));
 	}
 
 	/**
@@ -2261,7 +2275,7 @@ trait WebDav {
 		$elementRows = $expectedFiles->getRowsHash();
 		$resultEntries = $this->findEntryFromPropfindResponse();
 		foreach ($resultEntries as $resultEntry) {
-			PHPUnit\Framework\Assert::assertArrayHasKey($resultEntry, $elementRows);
+			Assert::assertArrayHasKey($resultEntry, $elementRows);
 		}
 	}
 
