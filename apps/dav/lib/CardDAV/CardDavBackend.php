@@ -806,18 +806,18 @@ class CardDavBackend implements BackendInterface, SyncSupport {
 	 */
 	public function search($addressBookId, $pattern, $searchProperties, $limit = 100, $offset = 0) {
 		$query = $this->db->getQueryBuilder();
-		$query2 = $this->db->getQueryBuilder();
-		$query2->selectDistinct('cp.cardid')->from($this->dbCardsPropertiesTable, 'cp');
-		$query2->where($query2->expr()->eq('cp.addressbookid', $query->createNamedParameter($addressBookId)));
-		$query2->andWhere($query2->expr()->in('cp.name', array_map(function($property) use ($query) {
-			return $query->createNamedParameter($property);
-		}, $searchProperties)));
-		$query2->andWhere($query2->expr()->ilike('cp.value', $query->createNamedParameter('%' . $this->db->escapeLikeParameter($pattern) . '%')));
-		$query->select(['c.carddata', 'c.uri'])->from($this->dbCardsTable, 'c')
-			->where($query->expr()->in('c.id', $query->createFunction($query2->getSQL())));
+		$query->select(['c.uri', 'c.carddata'])
+			->from($this->dbCardsTable, 'c')
+			->join('c', 'cards_properties', 'cp', $query->expr()->eq('c.id', 'cp.cardid'))
+			->where($query->expr()->eq('cp.addressbookid', $query->createNamedParameter($addressBookId)))
+			->andWhere($query->expr()->in('cp.name', \array_map(function($property) use ($query) {
+				return $query->createNamedParameter($property);
+			}, $searchProperties)))
+			->andWhere($query->expr()->iLike('cp.value', $query->createNamedParameter('%' . $this->db->escapeLikeParameter($pattern) . '%')))
 
-		$query->setFirstResult($offset)->setMaxResults($limit);
-		$query->orderBy('c.uri');
+			->setFirstResult($offset)->setMaxResults($limit)
+			->groupBy(['c.uri', 'c.carddata']) // only one result per card
+			->orderBy('c.uri');
 
 		$result = $query->execute();
 		$cards = $result->fetchAll();

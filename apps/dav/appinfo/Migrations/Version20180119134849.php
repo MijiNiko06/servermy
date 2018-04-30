@@ -34,7 +34,7 @@ class Version20180119134849 implements ISchemaMigration {
 		// Check for existing index spanning these columns
 		foreach ($table->getIndexes() as $index) {
 			// Check if we have a matching index already
-			if(empty(array_diff($index->getColumns(), ['addressbookid', 'name', 'value']))) {
+			if(empty(\array_diff($index->getColumns(), ['addressbookid', 'name', 'value']))) {
 				return;
 			}
 
