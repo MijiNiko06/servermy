@@ -162,7 +162,7 @@ class CardDavBackend implements BackendInterface, SyncSupport {
 		$principals = $this->principalBackend->getGroupMembership($principalUri, true);
 		$principals[]= $principalUri;
 
-		$addressBooksIds = [];
+		$addressBooksIds[] = -1;
 		foreach ($addressBooks as $book) {
 			$addressBooksIds[] = $book['id'];
 		}
@@ -175,7 +175,7 @@ class CardDavBackend implements BackendInterface, SyncSupport {
 			->andWhere($query->expr()->notIn('a.id', $query->createParameter('ownaddressbookids')))
 			->andWhere($query->expr()->eq('s.type', $query->createParameter('type')))
 			->setParameter('type', 'addressbook')
-			->setParameter('ownaddressbookids', $addressBooksIds, IQueryBuilder::PARAM_STR_ARRAY)
+			->setParameter('ownaddressbookids', $addressBooksIds, IQueryBuilder::PARAM_INT_ARRAY)
 			->setParameter('principaluri', $principals, IQueryBuilder::PARAM_STR_ARRAY)
 			->execute();
 
