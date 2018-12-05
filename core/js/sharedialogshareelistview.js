@@ -33,6 +33,12 @@
 			'{{/unless}}' +
 			'</span>' +
 			'{{/unless}} {{/if}}' +
+			'{{#if downloadPermissionPossible}}' +
+			'<span class="shareOption">' +
+			'<input id="canDownload-{{cid}}-{{shareWith}}" type="checkbox" name="read" class="permissions checkbox" {{#if hasDownloadPermission}}checked="checked"{{/if}} data-permissions="{{downloadPermission}}"/>' +
+			'<label for="canDownload-{{cid}}-{{shareWith}}">{{canDownloadLabel}}</label>' +
+			'</span>' +
+			'{{/if}}' +
 			'{{#if isResharingAllowed}} {{#if sharePermissionPossible}}' +
 			'<span class="shareOption">' +
 			'<input id="canShare-{{cid}}-{{shareWith}}" type="checkbox" name="share" class="permissions checkbox" {{#if hasSharePermission}}checked="checked"{{/if}} data-permissions="{{sharePermission}}" />' +
@@ -132,6 +138,7 @@
 			return _.extend(hasPermissionOverride, {
 				cid: this.cid,
 				hasSharePermission: this.model.hasSharePermission(shareIndex),
+				hasDownloadPermission: this.model.hasDownloadPermission(shareIndex),
 				hasEditPermission: this.model.hasEditPermission(shareIndex),
 				hasCreatePermission: this.model.hasCreatePermission(shareIndex),
 				hasUpdatePermission: this.model.hasUpdatePermission(shareIndex),
@@ -153,6 +160,7 @@
 				mailNotificationEnabled: this.configModel.isMailNotificationEnabled(),
 				notifyByMailLabel: t('core', 'notify by email'),
 				unshareLabel: t('core', 'Unshare'),
+				canDownloadLabel: t('core', 'can download'),
 				canShareLabel: t('core', 'can share'),
 				canEditLabel: t('core', 'can edit'),
 				createPermissionLabel: t('core', 'create'),
@@ -162,10 +170,12 @@
 				triangleSImage: OC.imagePath('core', 'actions/triangle-s'),
 				isResharingAllowed: this.configModel.get('isResharingAllowed'),
 				sharePermissionPossible: this.model.sharePermissionPossible(),
+				downloadPermissionPossible: this.model.downloadPermissionPossible(),
 				editPermissionPossible: this.model.editPermissionPossible(),
 				createPermissionPossible: this.model.createPermissionPossible(),
 				updatePermissionPossible: this.model.updatePermissionPossible(),
 				deletePermissionPossible: this.model.deletePermissionPossible(),
+				downloadPermission: OC.PERMISSION_READ,
 				sharePermission: OC.PERMISSION_SHARE,
 				createPermission: OC.PERMISSION_CREATE,
 				updatePermission: OC.PERMISSION_UPDATE,
@@ -274,7 +284,7 @@
 				$('input[name="edit"]', $li).prop('checked', checked);
 			}
 
-			var permissions = OC.PERMISSION_READ;
+			var permissions = OC.PERMISSION_VIEW;
 			$('.permissions', $li).not('input[name="edit"]').filter(':checked').each(function(index, checkbox) {
 				permissions |= $(checkbox).data('permissions');
 			});

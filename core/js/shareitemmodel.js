@@ -447,6 +447,22 @@
 		/**
 		 * @returns {boolean}
 		 */
+		downloadPermissionPossible: function() {
+			return (this.get('permissions') & OC.PERMISSION_READ) === OC.PERMISSION_READ;
+		},
+
+		/**
+		 * @param {number} shareIndex
+		 * @returns {boolean}
+		 */
+		hasDownloadPermission: function(shareIndex) {
+			return this._shareHasPermission(shareIndex, OC.PERMISSION_READ);
+		},
+
+
+		/**
+		 * @returns {boolean}
+		 */
 		createPermissionPossible: function() {
 			return (this.get('permissions') & OC.PERMISSION_CREATE) === OC.PERMISSION_CREATE;
 		},
