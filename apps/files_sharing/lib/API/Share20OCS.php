@@ -342,7 +342,6 @@ class Share20OCS {
 		if ($permissions === null) {
 			if ($shareType !== \OCP\Share::SHARE_TYPE_LINK) {
 				$permissions = $this->config->getAppValue('core', 'shareapi_default_permissions', \OCP\Constants::PERMISSION_ALL);
-				$permissions |= \OCP\Constants::PERMISSION_READ;
 			} else {
 				$permissions = \OCP\Constants::PERMISSION_ALL;
 			}
@@ -355,13 +354,11 @@ class Share20OCS {
 			return new \OC\OCS\Result(null, 404, 'invalid permissions');
 		}
 
-		if ($permissions === 0) {
-			return new \OC\OCS\Result(null, 400, $this->l->t('Cannot remove all permissions'));
-		}
-
-		// link shares can have create-only without read (anonymous upload)
-		if ($shareType !== \OCP\Share::SHARE_TYPE_LINK && $permissions !== \OCP\Constants::PERMISSION_CREATE) {
-			// Shares always require read permissions
+		// - link shares can have create-only without read (anonymous upload)
+		// - if list-only permission is explicitely specified for security reasons, don't add READ permission
+		if (($shareType !== \OCP\Share::SHARE_TYPE_LINK && $permissions !== \OCP\Constants::PERMISSION_CREATE) ||
+			$permissions === \OCP\Constants::PERMISSION_LIST_ONLY) {
+			// All other shares require read permissions
 			$permissions |= \OCP\Constants::PERMISSION_READ;
 		}
 
@@ -832,10 +829,6 @@ class Share20OCS {
 			}
 		}
 
-		if ($share->getPermissions() === 0) {
-			return new \OC\OCS\Result(null, 400, $this->l->t('Cannot remove all permissions'));
-		}
-
 		try {
 			$share = $this->shareManager->updateShare($share);
 		} catch (\Exception $e) {
@@ -990,13 +983,6 @@ class Share20OCS {
 	 * @return bool
 	 */
 	protected function canAccessShare(\OCP\Share\IShare $share) {
-		// A file with permissions 0 can't be accessed by us,
-		// unless it's a rejected sub-group share in which case we want it visible to let the user accept it again
-		if ($share->getPermissions() === 0
-			&& !($share->getShareType() === \OCP\Share::SHARE_TYPE_GROUP && $share->getState() === \OCP\Share::STATE_REJECTED)) {
-			return false;
-		}
-
 		// Owner of the file and the sharer of the file can always get share
 		if ($share->getShareOwner() === $this->currentUser->getUID() ||
 			$share->getSharedBy() === $this->currentUser->getUID()
@@ -1016,6 +1002,13 @@ class Share20OCS {
 				return true;
 			}
 		}
+
+		// Shares by link can have list only permission
+		if ($share->getPermissions() === \OCP\Constants::PERMISSION_LIST_ONLY
+			&& $share->getShareType() === \OCP\Share::SHARE_TYPE_LINK) {
+			return true;
+		}
+
 
 		return false;
 	}

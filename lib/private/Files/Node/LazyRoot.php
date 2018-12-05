@@ -263,6 +263,13 @@ class LazyRoot implements IRootFolder {
 	/**
 	 * @inheritDoc
 	 */
+	public function isViewable() {
+		return $this->__call(__FUNCTION__, \func_get_args());
+	}
+
+	/**
+	 * @inheritDoc
+	 */
 	public function getParent() {
 		return $this->__call(__FUNCTION__, \func_get_args());
 	}

@@ -284,7 +284,7 @@
 				$('input[name="edit"]', $li).prop('checked', checked);
 			}
 
-			var permissions = OC.PERMISSION_VIEW;
+			var permissions = OC.PERMISSION_LIST;
 			$('.permissions', $li).not('input[name="edit"]').filter(':checked').each(function(index, checkbox) {
 				permissions |= $(checkbox).data('permissions');
 			});

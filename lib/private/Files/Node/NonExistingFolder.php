@@ -122,6 +122,14 @@ class NonExistingFolder extends Folder {
 		}
 	}
 
+	public function isViewable() {
+		if ($this->fileInfo) {
+			return parent::isViewable();
+		} else {
+			throw new NotFoundException();
+		}
+	}
+
 	public function get($path) {
 		throw new NotFoundException();
 	}

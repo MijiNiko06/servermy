@@ -222,6 +222,13 @@ abstract class AbstractNode implements \OCP\Files\Node {
 	/**
 	 * @inheritdoc
 	 */
+	public function isViewable() {
+		throw new NotPermittedException();
+	}
+
+	/**
+	 * @inheritdoc
+	 */
 	public function getParent() {
 		throw new NotPermittedException();
 	}

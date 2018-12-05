@@ -281,7 +281,7 @@ class FilesPlugin extends ServerPlugin {
 		$httpRequest = $this->server->httpRequest;
 
 		if ($node instanceof \OCA\DAV\Connector\Sabre\Node) {
-			if (!$node->getFileInfo()->isReadable()) {
+			if (!$node->getFileInfo()->isViewable()) {
 				// avoid detecting files through this means
 				throw new NotFound();
 			}

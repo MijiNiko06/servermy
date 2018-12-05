@@ -321,6 +321,13 @@ class Root extends Folder implements IRootFolder {
 	}
 
 	/**
+	 * @return bool
+	 */
+	public function isViewable() {
+		return false;
+	}
+
+	/**
 	 * @return Node
 	 * @throws \OCP\Files\NotFoundException
 	 */

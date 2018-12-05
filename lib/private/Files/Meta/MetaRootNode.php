@@ -158,6 +158,13 @@ class MetaRootNode extends AbstractFolder {
 	/**
 	 * @inheritdoc
 	 */
+	public function isViewable() {
+		return false;
+	}
+
+	/**
+	 * @inheritdoc
+	 */
 	public function getName() {
 		return 'meta';
 	}

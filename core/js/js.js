@@ -48,7 +48,7 @@ function fileDownloadPath(dir, file) {
 
 /** @namespace */
 var OC = {
-	PERMISSION_VIEW: 0,
+	PERMISSION_LIST: 0,
 	PERMISSION_READ: 1,
 	PERMISSION_UPDATE: 2,
 	PERMISSION_CREATE: 4,

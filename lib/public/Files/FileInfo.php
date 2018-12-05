@@ -230,6 +230,15 @@ interface FileInfo {
 	public function isMounted();
 
 	/**
+	 * Check if the file or folder can be viewed. This permission is grated
+	 * to files which can be listed or read server-side.
+	 *
+	 * @return bool
+	 * @since 10.1.0
+	 */
+	public function isViewable();
+
+	/**
 	 * Get the mountpoint the file belongs to
 	 *
 	 * @return \OCP\Files\Mount\IMountPoint

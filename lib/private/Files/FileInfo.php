@@ -298,6 +298,22 @@ class FileInfo implements \OCP\Files\FileInfo, \ArrayAccess {
 	}
 
 	/**
+	 * Check if the file or folder can be viewed. This permission is grated
+	 * to files which can be listed or read server-side (e.g. shared files
+	 * without download permission).
+	 *
+	 * Non-Viewable files are the files which are not shared and without read permission.
+	 *
+	 * @return bool
+	 */
+	public function isViewable() {
+		if (!$this->isShared() && !$this->isReadable()) {
+			return false;
+		}
+		return true;
+	}
+
+	/**
 	 * Get the mountpoint the file belongs to
 	 *
 	 * @return \OCP\Files\Mount\IMountPoint

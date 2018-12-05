@@ -1520,7 +1520,13 @@ class View {
 						$rootEntry = $subCache->get('');
 					}
 
-					if ($rootEntry && ($rootEntry->getPermissions() && Constants::PERMISSION_READ)) {
+					$isViewable = true;
+					if (!($mount instanceof SharedMount) && !($rootEntry->getPermissions() && Constants::PERMISSION_READ)) {
+						// Files which are without read only permission and are not shares cannot be viewed
+						$isViewable = false;
+					}
+
+					if ($rootEntry && $isViewable) {
 						$relativePath = \trim(\substr($mountPoint, $dirLength), '/');
 						if ($pos = \strpos($relativePath, '/')) {
 							//mountpoint inside subfolder add size to the correct folder

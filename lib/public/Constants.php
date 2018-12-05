@@ -66,7 +66,18 @@ class Constants {
 	const PERMISSION_UPDATE = 2;
 	const PERMISSION_DELETE = 8;
 	const PERMISSION_SHARE = 16;
+
+	/**
+	 * All CRUDS permissions granted
+	 * @since 8.0.0
+	 */
 	const PERMISSION_ALL = 31;
+
+	/**
+	 * No CRUDS permissions granted - list only permission for share
+	 * @since 8.0.0
+	 */
+	const PERMISSION_LIST_ONLY = 0;
 
 	/**
 	 * @since 8.0.0 - Updated in 9.0.0 to allow all POSIX chars since we no

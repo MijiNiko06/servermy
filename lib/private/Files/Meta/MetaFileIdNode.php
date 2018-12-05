@@ -158,6 +158,13 @@ class MetaFileIdNode extends AbstractFolder {
 	/**
 	 * @inheritdoc
 	 */
+	public function isViewable() {
+		return false;
+	}
+
+	/**
+	 * @inheritdoc
+	 */
 	public function getParent() {
 		return $this->parentNode;
 	}

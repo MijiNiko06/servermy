@@ -121,6 +121,14 @@ class NonExistingFile extends File {
 		}
 	}
 
+	public function isViewable() {
+		if ($this->fileInfo) {
+			return parent::isViewable();
+		} else {
+			throw new NotFoundException();
+		}
+	}
+
 	public function getContent() {
 		throw new NotFoundException();
 	}

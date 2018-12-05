@@ -258,6 +258,15 @@ class Node implements \OCP\Files\Node {
 	 * @throws InvalidPathException
 	 * @throws NotFoundException
 	 */
+	public function isViewable() {
+		return $this->getFileInfo()->isViewable();
+	}
+
+	/**
+	 * @return bool
+	 * @throws InvalidPathException
+	 * @throws NotFoundException
+	 */
 	public function isCreatable() {
 		return $this->getFileInfo()->isCreatable();
 	}
