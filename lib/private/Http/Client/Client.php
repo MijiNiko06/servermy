@@ -132,9 +132,24 @@ class Client implements IClient {
 	 * @throws \Exception If the request could not get completed
 	 */
 	public function get($uri, array $options = []) {
-		$this->setDefaultOptions();
-		$response = $this->client->get($uri, $options);
 		$isStream = isset($options['stream']) && $options['stream'];
+		$this->setDefaultOptions();
+		if ($isStream) {
+			$proxyHost = $this->config->getSystemValue('proxy', null);
+			if (!empty($proxyHost)) {
+				$this->client->setDefaultOption(
+					'proxy',
+					'tcp://' . $proxyHost
+				);
+			}
+
+			$proxyUserPwd = $this->config->getSystemValue('proxyuserpwd', null);
+			if (!empty($proxyUserPwd)) {
+				$auth = \base64_encode(\urldecode($proxyUserPwd));
+				$this->client->setDefaultOption('headers/Proxy-Authorization', "Basic $auth");
+			}
+		}
+		$response = $this->client->get($uri, $options);
 		return new Response($response, $isStream);
 	}
 
