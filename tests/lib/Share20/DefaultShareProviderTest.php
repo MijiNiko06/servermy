@@ -23,6 +23,7 @@ namespace Test\Share20;
 
 use OC\Authentication\Token\DefaultTokenMapper;
 use OC\Share20\DefaultShareProvider;
+use OCP\Share\IExtraPermissions;
 use OCP\DB\QueryBuilder\IQueryBuilder;
 use OCP\Files\File;
 use OCP\Files\Folder;
@@ -657,6 +658,28 @@ class DefaultShareProviderTest extends TestCase {
 		$this->assertEquals('myTarget2', $children[1]->getTarget());
 	}
 
+	/**
+	 * @return \PHPUnit_Framework_MockObject_MockObject | IExtraPermissions
+	 */
+	private function createExtraPermissions() {
+		$extraPermissions = $this->createMock(IExtraPermissions::class);
+		$extraPermissions->method('getApps')
+			->with()
+			->willReturn(['app1']);
+		$extraPermissions->method('getKeys')
+			->with('app1')
+			->willReturn(['perm1', 'perm2']);
+		$extraPermissions->method('getPermission')
+			->willReturn(true);
+
+		return $extraPermissions;
+	}
+
+	private function assertExtraPermissions(IShare $share) {
+		$this->assertSame(['app1'], $share->getExtraPermissions()->getApps());
+		$this->assertSame(['perm1', 'perm2'], $share->getExtraPermissions()->getKeys('app1'));
+	}
+
 	public function testCreateUserShare() {
 		$share = new \OC\Share20\Share($this->rootFolder, $this->userManager);
 
@@ -689,6 +712,9 @@ class DefaultShareProviderTest extends TestCase {
 		$share->setShareOwner('shareOwner');
 		$share->setNode($path);
 		$share->setPermissions(1);
+		$share->setExtraPermissions(
+			$this->createExtraPermissions()
+		);
 		$share->setTarget('/target');
 
 		$share2 = $this->provider->create($share);
@@ -700,6 +726,7 @@ class DefaultShareProviderTest extends TestCase {
 		$this->assertSame('sharedBy', $share2->getSharedBy());
 		$this->assertSame('shareOwner', $share2->getShareOwner());
 		$this->assertSame(1, $share2->getPermissions());
+		$this->assertExtraPermissions($share2);
 		$this->assertSame('/target', $share2->getTarget());
 		$this->assertLessThanOrEqual(new \DateTime(), $share2->getShareTime());
 		$this->assertSame($path, $share2->getNode());
@@ -737,6 +764,9 @@ class DefaultShareProviderTest extends TestCase {
 		$share->setShareOwner('shareOwner');
 		$share->setNode($path);
 		$share->setPermissions(1);
+		$share->setExtraPermissions(
+			$this->createExtraPermissions()
+		);
 		$share->setTarget('/target');
 
 		$share2 = $this->provider->create($share);
@@ -748,6 +778,7 @@ class DefaultShareProviderTest extends TestCase {
 		$this->assertSame('sharedBy', $share2->getSharedBy());
 		$this->assertSame('shareOwner', $share2->getShareOwner());
 		$this->assertSame(1, $share2->getPermissions());
+		$this->assertExtraPermissions($share2);
 		$this->assertSame('/target', $share2->getTarget());
 		$this->assertLessThanOrEqual(new \DateTime(), $share2->getShareTime());
 		$this->assertSame($path, $share2->getNode());

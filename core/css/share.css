@@ -99,6 +99,10 @@
 	white-space: normal;
 }
 
+#shareWithList .extraPermission {
+	display: block;
+}
+
 #shareWithList .shareOption {
 	white-space: nowrap;
 	display: inline-block;

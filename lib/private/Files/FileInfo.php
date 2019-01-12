@@ -333,6 +333,7 @@ class FileInfo implements \OCP\Files\FileInfo, \ArrayAccess {
 			$relativeEntryPath = \substr($entryPath, \strlen($this->getPath()));
 			// attach the permissions to propagate etag on permision changes of submounts
 			$permissions = isset($data['permissions']) ? $data['permissions'] : 0;
+			// FIXME: change etags also on extra permission?
 			$this->childEtags[] = $relativeEntryPath . '/' . $data['etag'] . $permissions;
 		}
 	}

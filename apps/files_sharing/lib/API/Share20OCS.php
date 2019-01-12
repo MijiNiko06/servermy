@@ -22,6 +22,10 @@
  */
 namespace OCA\Files_Sharing\API;
 
+use OC\OCS\Result;
+use OC\Share20\ShareAttributes;
+use OCP\AppFramework\OCSController;
+use OCP\Constants;
 use OCP\Files\IRootFolder;
 use OCP\Files\NotFoundException;
 use OCP\IConfig;
@@ -35,6 +39,7 @@ use OCP\Lock\ILockingProvider;
 use OCP\Lock\LockedException;
 use OCP\Share\Exceptions\GenericShareException;
 use OCP\Share\Exceptions\ShareNotFound;
+use OCP\Share\IAttributes;
 use OCP\Share\IManager;
 use OCP\Share\IShare;
 use OCA\Files_Sharing\Service\NotificationPublisher;
@@ -231,6 +236,23 @@ class Share20OCS {
 		}
 
 		$result['mail_send'] = $share->getMailSend() ? 1 : 0;
+
+		$attributes = $share->getAttributes();
+		if ($attributes !== null) {
+			// Share provider supports extra permissions
+			$formattedShareAttributes = [];
+			foreach ($attributes->getScopes() as $scope) {
+				foreach ($attributes->getKeys($scope) as $key) {
+					$formattedAttr['scope'] = $scope;
+					$formattedAttr['name'] = $key;
+					$formattedAttr['enabled'] = $attributes->getAttribute($scope, $key);
+					$formattedShareAttributes[] = $formattedAttr;
+				}
+			}
+			$result['attributes'] = \json_encode($formattedShareAttributes);
+		} else {
+			$result['attributes'] = null;
+		}
 
 		return $result;
 	}
@@ -495,6 +517,13 @@ class Share20OCS {
 
 		$share->setShareType($shareType);
 		$share->setSharedBy($this->currentUser->getUID());
+
+		try {
+			$share = $this->setShareAttributes($share, $this->request->getParam('attributes', null));
+		} catch (\Exception $e) {
+			$share->getNode()->unlock(ILockingProvider::LOCK_SHARED);
+			return new Result(null, 400, $this->l->t('Cannot parse extra share permissions'));
+		}
 
 		try {
 			$share = $this->shareManager->createShare($share);
@@ -835,6 +864,12 @@ class Share20OCS {
 		}
 
 		try {
+			$share = $this->setShareAttributes($share, $this->request->getParam('attributes', null));
+		} catch (\Exception $e) {
+			$share->getNode()->unlock(ILockingProvider::LOCK_SHARED);
+			return new Result(null, 400, $this->l->t('Cannot parse extra share permissions'));
+		}
+		try {
 			$share = $this->shareManager->updateShare($share);
 		} catch (\Exception $e) {
 			$share->getNode()->unlock(ILockingProvider::LOCK_SHARED);
@@ -1064,6 +1099,29 @@ class Share20OCS {
 			}
 
 			$share = $this->shareManager->getShareById('ocFederatedSharing:' . $id, $recipient);
+		}
+
+		return $share;
+	}
+
+	/**
+	 * @param IShare $share
+	 * @param string[][]|null $formattedShareAttributes
+	 * @return IShare modified share
+	 */
+	private function setShareAttributes($share, $formattedShareAttributes) {
+		if ($formattedShareAttributes != null) {
+			$newShareAttributes = $this->shareManager->newShare()->newAttributes();
+			foreach ($formattedShareAttributes as $formattedAttr) {
+				$newShareAttributes->setAttribute(
+					$formattedAttr["scope"],
+					$formattedAttr["name"],
+					(bool) \json_decode($formattedAttr["enabled"])
+				);
+			}
+			$share->setAttributes($newShareAttributes);
+		} else {
+			$share->setAttributes(null);
 		}
 
 		return $share;

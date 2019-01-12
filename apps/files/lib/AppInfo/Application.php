@@ -27,8 +27,10 @@ namespace OCA\Files\AppInfo;
 use OCA\Files\Controller\ApiController;
 use OCA\Files\Controller\ViewController;
 use OCA\Files\Service\TagService;
+use OCA\Files\ViewOnly;
 use OCP\AppFramework\App;
 use OCP\IContainer;
+use Symfony\Component\EventDispatcher\GenericEvent;
 
 class Application extends App {
 	public function __construct(array $urlParams= []) {
@@ -94,5 +96,35 @@ class Application extends App {
 		 * Register capabilities
 		 */
 		$container->registerCapability('OCA\Files\Capabilities');
+
+		$dispatcher = $this->getContainer()->getServer()->getEventDispatcher();
+
+		// Make sure all legacy internal api calls are checked
+		$viewOnlyHandler = new ViewOnly();
+		$dispatcher->addListener('file.beforeCreateZip', function (GenericEvent $event) use ($viewOnlyHandler) {
+			$dir = $event->getArgument('dir');
+			$files = $event->getArgument('files');
+
+			$pathsToCheck = [];
+			if (\is_array($files)) {
+				foreach ($files as $file) {
+					$pathsToCheck[] = $dir . '/' . $file;
+				}
+			} elseif (\is_string($files)) {
+				$pathsToCheck[] = $dir . '/' . $files;
+			}
+
+			if (!$viewOnlyHandler->check($pathsToCheck)) {
+				$event->setArgument('errorMessage', 'File, folder or one of the files inside the folder cannot be downloaded');
+			}
+		});
+
+		$dispatcher->addListener('file.beforeGetDirect', function (GenericEvent $event) use ($viewOnlyHandler) {
+			$pathsToCheck[] = $event->getArgument('path');
+
+			if (!$viewOnlyHandler->check($pathsToCheck)) {
+				$event->setArgument('errorMessage', 'File, folder or one of the files inside the folder cannot be downloaded');
+			}
+		});
 	}
 }

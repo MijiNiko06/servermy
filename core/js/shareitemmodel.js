@@ -38,6 +38,7 @@
 	 * @typedef {object} OC.Share.Types.ShareInfo
 	 * @property {number} share_type
 	 * @property {number} permissions
+	 * @property {string} attributes
 	 * @property {number} file_source optional
 	 * @property {number} item_source
 	 * @property {string} token
@@ -54,6 +55,22 @@
 	 * @property {OC.Share.Types.Reshare} reshare
 	 * @property {OC.Share.Types.ShareInfo[]} shares
 	 * @property {OC.Share.Types.LinkShareInfo|undefined} linkShare
+	 */
+
+	/**
+	 * @typedef {object} OC.Share.Types.RegisteredShareAttribute
+	 * @property {string} name
+	 * @property {bool}   default
+	 * @property {string} scope
+	 * @property {string} label
+	 * @property {number[]} incompatiblePermissions
+	 */
+
+	/**
+	 * @typedef {object} OC.Share.Types.ShareAttribute
+	 * @property {string} name
+	 * @property {bool}   enabled
+	 * @property {string} scope
 	 */
 
 	/**
@@ -84,6 +101,11 @@
 
 		_linkSharesCollection: null,
 
+		/**
+		 * @type {OC.Share.Types.RegisteredShareAttribute[]} registered available share permissions for this file/folder share
+		 */
+		_registeredAttributes: null,
+
 		initialize: function(attributes, options) {
 			if(!_.isUndefined(options.configModel)) {
 				this.configModel = options.configModel;
@@ -94,8 +116,10 @@
 			}
 
 			this._linkSharesCollection = new OC.Share.SharesCollection();
+			this._registeredAttributes = [];
 
 			_.bindAll(this, 'addShare');
+			OC.Plugins.attach('OC.Share.ShareItemModel', this);
 		},
 
 		defaults: {
@@ -121,15 +145,14 @@
 			return this.fileInfoModel;
 		},
 
-		addShare: function(attributes, options) {
-			var shareType = attributes.shareType;
+		addShare: function(properties, options) {
+			var shareType = properties.shareType;
 			options = options || {};
-			attributes = _.extend({}, attributes);
-
-			var defaultPermissions = OC.getCapabilities()['files_sharing']['default_permissions'] || OC.PERMISSION_ALL;
+			properties = _.extend({}, properties);
 
 			// Default permissions are Edit (CRUD) and Share
 			// Check if these permissions are possible
+			var defaultPermissions = OC.getCapabilities()['files_sharing']['default_permissions'] || OC.PERMISSION_ALL;
 			var possiblePermissions = OC.PERMISSION_READ;
 			if (this.updatePermissionPossible()) {
 				possiblePermissions = possiblePermissions | OC.PERMISSION_UPDATE;
@@ -143,17 +166,29 @@
 			if (this.configModel.get('isResharingAllowed') && (this.sharePermissionPossible())) {
 				possiblePermissions = possiblePermissions | OC.PERMISSION_SHARE;
 			}
+			properties.permissions = defaultPermissions & possiblePermissions;
 
-			attributes.permissions = defaultPermissions & possiblePermissions;
-			if (_.isUndefined(attributes.path)) {
-				attributes.path = this.fileInfoModel.getFullPath();
+			// set default allowed extra permissions for this share
+			var shareAttributes = [];
+			var allowedAttributes = this.getRegisteredAttributes(properties.permissions);
+			_.map(allowedAttributes, function(attribute) {
+				shareAttributes.push({
+					scope : attribute.scope,
+					name: attribute.name,
+					enabled: attribute.default
+				});
+			});
+			properties.attributes = shareAttributes;
+
+			if (_.isUndefined(properties.path)) {
+				properties.path = this.fileInfoModel.getFullPath();
 			}
 
 			var self = this;
 			return $.ajax({
 				type: 'POST',
 				url: this._getUrl('shares'),
-				data: attributes,
+				data: properties,
 				dataType: 'json'
 			}).done(function() {
 				self.fetch().done(function() {
@@ -176,13 +211,42 @@
 			});
 		},
 
-		updateShare: function(shareId, attrs, options) {
+		updateShare: function(shareId, properties, options) {
 			var self = this;
 			options = options || {};
+
+			var shareAttributes = [];
+			var compatibleAttributes = this.getRegisteredAttributes(properties.permissions);
+			compatibleAttributes.map(function(allowedAttribute) {
+				// Check existing extra permissions which are compatible
+				var found = false;
+				properties.attributes.map(function(currentAttribute) {
+					if (currentAttribute.name === allowedAttribute.name
+						&& currentAttribute.scope === allowedAttribute.scope) {
+						found = true;
+						shareAttributes.push({
+							scope : currentAttribute.scope,
+							name: currentAttribute.name,
+							enabled: currentAttribute.enabled
+						});
+					}
+				});
+
+				// if new permissions became available, set default
+				if (!found) {
+					shareAttributes.push({
+						scope : allowedAttribute.scope,
+						name: allowedAttribute.name,
+						enabled: allowedAttribute.default
+					});
+				}
+			});
+			properties.attributes = shareAttributes;
+
 			return $.ajax({
 				type: 'PUT',
 				url: this._getUrl('shares/' + encodeURIComponent(shareId)),
-				data: attrs,
+				data: properties,
 				dataType: 'json'
 			}).done(function() {
 				self.fetch({
@@ -381,6 +445,18 @@
 		},
 
 		/**
+		 * whether permission is in permission bitmap
+		 *
+		 * @param {number} permissions
+		 * @param {number} permission
+		 * @returns {boolean}
+		 * @private
+		 */
+		_hasPermission: function(permissions, permission) {
+			return (permissions & permission) === permission;
+		},
+
+		/**
 		 * whether a share from shares has the requested permission
 		 *
 		 * @param {number} shareIndex
@@ -394,7 +470,7 @@
 			if(!_.isObject(share)) {
 				throw "Unknown Share";
 			}
-			return (share.permissions & permission) === permission;
+			return this._hasPermission(share.permissions, permission);
 		},
 
 		notificationMailWasSent: function(shareIndex) {
@@ -736,7 +812,113 @@
 				result.push(OC.Share.SHARE_TYPE_LINK);
 			}
 			return _.uniq(result);
+		},
+
+		/**
+		 * Based on given share permission, returns all available
+		 * share attributes which are compatible
+		 *
+		 * @param {number} permissions
+		 * @returns {OC.Share.Types.RegisteredShareAttribute[]}
+		 * @private
+		 */
+		getRegisteredAttributes: function(permissions) {
+			var result = [];
+
+			for(var i in this._registeredAttributes) {
+				var compatible = true;
+				var availAttr = this._registeredAttributes[i];
+				for(var j in availAttr.incompatiblePermissions) {
+					if (this._hasPermission(permissions, availAttr.incompatiblePermissions[j])) {
+						compatible = false;
+					}
+				}
+
+				if (compatible) {
+					result.push(availAttr);
+				}
+			}
+
+			return result;
+		},
+
+		/**
+		 * Returns share attributes for given share index
+		 *
+		 * @param shareIndex
+		 * @returns OC.Share.Types.ShareAttribute[]
+		 */
+		getShareAttributes: function(shareIndex) {
+			/** @type OC.Share.Types.ShareInfo **/
+			var share = this.get('shares')[shareIndex];
+			if(!_.isObject(share)) {
+				throw "Unknown Share";
+			}
+
+			if (_.isUndefined(share.attributes) || _.isUndefined(share.permissions)) {
+				return [];
+			}
+
+			// Add attributes for this share
+			var currentAttributes = JSON.parse(share.attributes);
+			if (currentAttributes) {
+				return currentAttributes;
+			}
+			return [];
+		},
+
+		/**
+		 * Returns share attribute label for given attribute scope and name. If
+		 * attribute does not exist, null is returned.
+		 *
+		 * @param scope
+		 * @param name
+		 * @returns string|null
+		 */
+		getRegisteredShareAttributeLabel: function(scope, name) {
+			for(var i in this._registeredAttributes) {
+				if (this._registeredAttributes[i].scope === scope
+					&& this._registeredAttributes[i].name === name) {
+					return this._registeredAttributes[i].label;
+				}
+			}
+			return null;
+		},
+
+		/**
+		 * Apps can register default share attributes
+		 *
+		 * @param {string}   $scopeId
+		 * @param {string}   $attributeName
+		 * @param {string}   $attributeLabel
+		 * @param {boolean}  $attributeDefault
+		 * @param {number[]} $incompatiblePermissions
+		 */
+		registerShareAttribute: function($scopeId, $attributeName, $attributeLabel, $attributeDefault, $incompatiblePermissions) {
+			/** @type OC.Share.Types.RegisteredShareAttribute */
+			var shareAttributes = {
+				scope: $scopeId,
+				name: $attributeName,
+				incompatiblePermissions: $incompatiblePermissions,
+				default: $attributeDefault,
+				label: $attributeLabel
+			};
+
+			// Add extra permission or update if already existing
+			var exists = false;
+			for(var i in this._registeredAttributes) {
+				if (this._registeredAttributes[i].scope === $scopeId
+					&& this._registeredAttributes[i].name === $attributeName) {
+					this._registeredAttributes[i] = shareAttributes;
+					exists = true;
+				}
+			}
+			if (!exists) {
+				this._registeredAttributes.push(shareAttributes);
+			}
+
 		}
+
 	});
 
 	OC.Share.ShareItemModel = ShareItemModel;

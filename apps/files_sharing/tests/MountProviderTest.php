@@ -27,6 +27,7 @@ use OCP\Files\Storage\IStorageFactory;
 use OCP\IConfig;
 use OCP\ILogger;
 use OCP\IUser;
+use OCP\Share\IExtraPermissions;
 use OCP\Share\IManager;
 
 /**
@@ -64,11 +65,39 @@ class MountProviderTest extends \Test\TestCase {
 		$this->provider = new MountProvider($this->config, $this->shareManager, $this->logger);
 	}
 
+<<<<<<< HEAD
 	private function makeMockShare($id, $nodeId, $owner = 'user2', $target = null, $permissions = 31, $state = null) {
 		$share = $this->createMock('\OCP\Share\IShare');
+=======
+	private function makeMockExtraPermissions($perms) {
+		if ($perms === null) {
+			return null;
+		}
+
+		$extraPermissions = $this->createMock(IExtraPermissions::class);
+		$extraPermissions->method('getApps')->willReturn(\array_keys($perms));
+		$extraPermissions->method('getKeys')->will(
+			$this->returnCallback(function ($app) use ($perms) {
+				return \array_keys($perms[$app]);
+			})
+		);
+		$extraPermissions->method('getPermission')->will(
+			$this->returnCallback(function ($app, $key) use ($perms) {
+				return $perms[$app][$key];
+			})
+		);
+		return $extraPermissions;
+	}
+
+	private function makeMockShare($id, $nodeId, $owner = 'user2', $target = null, $permissions = 31, $extraPermissions = [], $state = null) {
+		$share = $this->createMock(IShare::class);
+>>>>>>> 8906f30d3c... View-only dav plugin using IShare extra share permissions
 		$share->expects($this->any())
 			->method('getPermissions')
 			->will($this->returnValue($permissions));
+		$share->expects($this->any())
+			->method('getExtraPermissions')
+			->will($this->returnValue($this->makeMockExtraPermissions($extraPermissions)));
 		$share->expects($this->any())
 			->method('getShareOwner')
 			->will($this->returnValue($owner));
@@ -108,17 +137,19 @@ class MountProviderTest extends \Test\TestCase {
 		$rootFolder = $this->createMock('\OCP\Files\IRootFolder');
 		$userManager = $this->createMock('\OCP\IUserManager');
 
+		$extraPermissions1 = [];
+		$extraPermissions2 = ['app1' => ['perm1' => true]];
 		$userShares = [
-			$this->makeMockShare(1, 100, 'user2', '/share2', 0),
-			$this->makeMockShare(2, 100, 'user2', '/share2', 31),
-			$this->makeMockShare(6, 100, 'user2', '/share2', 31, \OCP\Share::STATE_PENDING),
-			$this->makeMockShare(7, 100, 'user2', '/share2', 31, \OCP\Share::STATE_REJECTED),
+			$this->makeMockShare(1, 100, 'user2', '/share2', 0, $extraPermissions1),
+			$this->makeMockShare(2, 100, 'user2', '/share2', 31, $extraPermissions2),
+			$this->makeMockShare(6, 100, 'user2', '/share2', 31, $extraPermissions2, \OCP\Share::STATE_PENDING),
+			$this->makeMockShare(7, 100, 'user2', '/share2', 31, $extraPermissions2, \OCP\Share::STATE_REJECTED),
 		];
 
 		$groupShares = [
-			$this->makeMockShare(3, 100, 'user2', '/share2', 0),
-			$this->makeMockShare(4, 101, 'user2', '/share4', 31),
-			$this->makeMockShare(5, 100, 'user1', '/share4', 31),
+			$this->makeMockShare(3, 100, 'user2', '/share2', 0, $extraPermissions1),
+			$this->makeMockShare(4, 101, 'user2', '/share4', 31, $extraPermissions2),
+			$this->makeMockShare(5, 100, 'user1', '/share4', 31, $extraPermissions2),
 		];
 
 		$userGroupUserShares = \array_merge($userShares, $groupShares);
@@ -153,6 +184,7 @@ class MountProviderTest extends \Test\TestCase {
 		$this->assertEquals(100, $mountedShare1->getNodeId());
 		$this->assertEquals('/share2', $mountedShare1->getTarget());
 		$this->assertEquals(31, $mountedShare1->getPermissions());
+		$this->assertEquals(true, $mountedShare1->getExtraPermissions()->getPermission('app1', 'perm1'));
 
 		$mountedShare2 = $mounts[1]->getShare();
 		$this->assertEquals('4', $mountedShare2->getId());
@@ -160,6 +192,7 @@ class MountProviderTest extends \Test\TestCase {
 		$this->assertEquals(101, $mountedShare2->getNodeId());
 		$this->assertEquals('/share4', $mountedShare2->getTarget());
 		$this->assertEquals(31, $mountedShare2->getPermissions());
+		$this->assertEquals(true, $mountedShare2->getExtraPermissions()->getPermission('app1', 'perm1'));
 	}
 
 	public function mergeSharesDataProvider() {
@@ -169,27 +202,27 @@ class MountProviderTest extends \Test\TestCase {
 			// #0: share as outsider with "group1" and "user1" with same permissions
 			[
 				[
-					[1, 100, 'user2', '/share2', 31],
+					[1, 100, 'user2', '/share2', 31, null],
 				],
 				[
-					[2, 100, 'user2', '/share2', 31],
+					[2, 100, 'user2', '/share2', 31, null],
 				],
 				[
 					// combined, user share has higher priority
-					['1', 100, 'user2', '/share2', 31],
+					['1', 100, 'user2', '/share2', 31, []],
 				],
 			],
 			// #1: share as outsider with "group1" and "user1" with different permissions
 			[
 				[
-					[1, 100, 'user2', '/share', 31],
+					[1, 100, 'user2', '/share', 31, ['app1' => ['perm1' => true]]],
 				],
 				[
-					[2, 100, 'user2', '/share', 15],
+					[2, 100, 'user2', '/share', 15, ['app2' => ['perm3' => false], 'app1' => ['perm1' => false, 'perm2' => false]]],
 				],
 				[
 					// use highest permissions
-					['1', 100, 'user2', '/share', 31],
+					['1', 100, 'user2', '/share', 31, ['app2' => ['perm3' => false], 'app1' => ['perm1' => true, 'perm2' => false]]],
 				],
 			],
 			// #2: share as outsider with "group1" and "group2" with same permissions
@@ -197,12 +230,12 @@ class MountProviderTest extends \Test\TestCase {
 				[
 				],
 				[
-					[1, 100, 'user2', '/share', 31],
-					[2, 100, 'user2', '/share', 31],
+					[1, 100, 'user2', '/share', 31, null],
+					[2, 100, 'user2', '/share', 31, []],
 				],
 				[
 					// combined, first group share has higher priority
-					['1', 100, 'user2', '/share', 31],
+					['1', 100, 'user2', '/share', 31, []],
 				],
 			],
 			// #3: share as outsider with "group1" and "group2" with different permissions
@@ -210,12 +243,12 @@ class MountProviderTest extends \Test\TestCase {
 				[
 				],
 				[
-					[1, 100, 'user2', '/share', 31],
-					[2, 100, 'user2', '/share', 15],
+					[1, 100, 'user2', '/share', 31, ['app1' => ['perm1' => true]]],
+					[2, 100, 'user2', '/share', 15, ['app1' => ['perm1' => false]]],
 				],
 				[
 					// use higher permissions
-					['1', 100, 'user2', '/share', 31],
+					['1', 100, 'user2', '/share', 31, ['app1' => ['perm1' => true]]],
 				],
 			],
 			// #4: share as insider with "group1"
@@ -223,7 +256,7 @@ class MountProviderTest extends \Test\TestCase {
 				[
 				],
 				[
-					[1, 100, 'user1', '/share', 31],
+					[1, 100, 'user1', '/share', 31, []],
 				],
 				[
 					// no received share since "user1" is the sharer/owner
@@ -234,8 +267,8 @@ class MountProviderTest extends \Test\TestCase {
 				[
 				],
 				[
-					[1, 100, 'user1', '/share', 31],
-					[2, 100, 'user1', '/share', 15],
+					[1, 100, 'user1', '/share', 31, ['app1' => ['perm1' => true]]],
+					[2, 100, 'user1', '/share', 15, ['app1' => ['perm1' => false]]],
 				],
 				[
 					// no received share since "user1" is the sharer/owner
@@ -246,7 +279,7 @@ class MountProviderTest extends \Test\TestCase {
 				[
 				],
 				[
-					[1, 100, 'user2', '/share', 0],
+					[1, 100, 'user2', '/share', 0, []],
 				],
 				[
 					// no received share since "user1" opted out
@@ -255,44 +288,59 @@ class MountProviderTest extends \Test\TestCase {
 			// #7: share as outsider with "group1" and "user1" where recipient renamed in between
 			[
 				[
-					[1, 100, 'user2', '/share2-renamed', 31],
+					[1, 100, 'user2', '/share2-renamed', 31, []],
 				],
 				[
-					[2, 100, 'user2', '/share2', 31],
+					[2, 100, 'user2', '/share2', 31, []],
 				],
 				[
 					// use target of least recent share
-					['1', 100, 'user2', '/share2-renamed', 31],
+					['1', 100, 'user2', '/share2-renamed', 31, []],
 				],
 			],
 			// #8: share as outsider with "group1" and "user1" where recipient renamed in between
 			[
 				[
-					[2, 100, 'user2', '/share2', 31],
+					[2, 100, 'user2', '/share2', 31, []],
 				],
 				[
-					[1, 100, 'user2', '/share2-renamed', 31],
+					[1, 100, 'user2', '/share2-renamed', 31, []],
 				],
 				[
 					// use target of least recent share
-					['1', 100, 'user2', '/share2-renamed', 31],
+					['1', 100, 'user2', '/share2-renamed', 31, []],
 				],
 			],
 			// #9: share as outsider with "nullgroup" and "user1" where recipient renamed in between
 			[
 				[
-					[2, 100, 'user2', '/share2', 31],
+					[2, 100, 'user2', '/share2', 31, []],
 				],
 				[
-					[1, 100, 'nullgroup', '/share2-renamed', 31],
+					[1, 100, 'nullgroup', '/share2-renamed', 31, []],
 				],
 				[
 					// use target of least recent share
-					['1', 100, 'nullgroup', '/share2-renamed', 31],
+					['1', 100, 'nullgroup', '/share2-renamed', 31, []],
 				],
 				true
 			],
 		];
+	}
+
+	private function assertExtraPermissions($expected, IExtraPermissions $actual) {
+		if ($expected === null) {
+			$this->assertEquals($expected, $actual);
+		} else {
+			$actualArray = [];
+			foreach ($actual->getApps() as $app) {
+				$actualArray[$app] = [];
+				foreach ($actual->getKeys($app) as $key) {
+					$actualArray[$app][$key] = $actual->getPermission($app, $key);
+				}
+			}
+			$this->assertEquals($expected, $actualArray);
+		}
 	}
 
 	/**
@@ -312,10 +360,10 @@ class MountProviderTest extends \Test\TestCase {
 		$userManager = $this->createMock('\OCP\IUserManager');
 
 		$userShares = \array_map(function ($shareSpec) {
-			return $this->makeMockShare($shareSpec[0], $shareSpec[1], $shareSpec[2], $shareSpec[3], $shareSpec[4]);
+			return $this->makeMockShare($shareSpec[0], $shareSpec[1], $shareSpec[2], $shareSpec[3], $shareSpec[4], $shareSpec[5]);
 		}, $userShares);
 		$groupShares = \array_map(function ($shareSpec) {
-			return $this->makeMockShare($shareSpec[0], $shareSpec[1], $shareSpec[2], $shareSpec[3], $shareSpec[4]);
+			return $this->makeMockShare($shareSpec[0], $shareSpec[1], $shareSpec[2], $shareSpec[3], $shareSpec[4], $shareSpec[5]);
 		}, $groupShares);
 
 		$this->user->expects($this->any())
@@ -360,6 +408,7 @@ class MountProviderTest extends \Test\TestCase {
 			$this->assertEquals($expectedShare[2], $share->getShareOwner());
 			$this->assertEquals($expectedShare[3], $share->getTarget());
 			$this->assertEquals($expectedShare[4], $share->getPermissions());
+			$this->assertExtraPermissions($expectedShare[5], $share->getExtraPermissions());
 		}
 	}
 }
