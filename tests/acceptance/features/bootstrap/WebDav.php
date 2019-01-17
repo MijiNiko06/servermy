@@ -51,8 +51,7 @@ trait WebDav {
 	private $usingOldDavPath = true;
 
 	/**
-	 * @var array ResponseInterface with keys 'response' and
-	 *                              'upload_type' string text describing the type of upload
+	 * @var ResponseInterface[]
 	 */
 	private $uploadResponses;
 
@@ -1410,8 +1409,8 @@ trait WebDav {
 		foreach ($this->uploadResponses as $response) {
 			PHPUnit\Framework\Assert::assertEquals(
 				$statusCode,
-				$response['response']->getStatusCode(),
-				'Response for dav upload ' . $response['upload_type'] . ' did not return expected status code'
+				$response->getStatusCode(),
+				'Response did not return expected status code'
 			);
 		}
 	}
@@ -1428,7 +1427,7 @@ trait WebDav {
 			PHPUnit\Framework\Assert::assertEquals(
 				$reasonPhrase,
 				$response->getReasonPhrase(),
-				'Response for ' . $response->getEffectiveUrl() . ' did not return expected reason phrase'
+				'Response did not return expected reason phrase'
 			);
 		}
 	}
@@ -1475,13 +1474,13 @@ trait WebDav {
 		foreach ($this->uploadResponses as $response) {
 			PHPUnit\Framework\Assert::assertGreaterThanOrEqual(
 				$minStatusCode,
-				$response['response']->getStatusCode(),
-				'Response for dav upload ' . $response['upload_type'] . ' did not return expected status code'
+				$response->getStatusCode(),
+				'Response did not return expected status code'
 			);
 			PHPUnit\Framework\Assert::assertLessThanOrEqual(
 				$maxStatusCode,
-				$response['response']->getStatusCode(),
-				'Response for dav upload ' . $response['upload_type'] . ' did not return expected status code'
+				$response->getStatusCode(),
+				'Response did not return expected status code'
 			);
 		}
 	}
