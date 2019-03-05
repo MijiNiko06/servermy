@@ -55,6 +55,7 @@ use OCA\DAV\Files\PreviewPlugin;
 use OCA\DAV\Files\ZsyncPlugin;
 use OCA\DAV\JobStatus\Entity\JobStatusMapper;
 use OCA\DAV\SystemTag\SystemTagPlugin;
+use OCA\DAV\TrashBin\TrashBinPlugin;
 use OCA\DAV\Upload\ChunkingPlugin;
 use OCA\DAV\Upload\ChunkingPluginZsync;
 use OCP\IRequest;
@@ -188,6 +189,7 @@ class Server {
 
 		$this->server->addPlugin(new CopyEtagHeaderPlugin());
 		$this->server->addPlugin(new ChunkingPlugin());
+		$this->server->addPlugin(new TrashBinPlugin());
 
 		if (BrowserErrorPagePlugin::isBrowserRequest($request)) {
 			$this->server->addPlugin(new BrowserErrorPagePlugin());
