@@ -50,14 +50,15 @@ class Install extends Command {
 			->setName('maintenance:install')
 			->setDescription('Install ownCloud.')
 			->addOption('database', null, InputOption::VALUE_REQUIRED, 'Supported database type.', 'sqlite')
+			->addOption('database-connection-string', null, InputOption::VALUE_REQUIRED, 'Database specific connection string (currently only for Oracle).')
 			->addOption('database-name', null, InputOption::VALUE_REQUIRED, 'Name of the database.')
 			->addOption('database-host', null, InputOption::VALUE_REQUIRED, 'Hostname of the database.', 'localhost')
 			->addOption('database-user', null, InputOption::VALUE_REQUIRED, 'User name to connect to the database.')
-			->addOption('database-pass', null, InputOption::VALUE_OPTIONAL, 'Password of the database user.', null)
-			->addOption('database-table-prefix', null, InputOption::VALUE_OPTIONAL, 'Prefix for all tables (default: oc_).', null)
+			->addOption('database-pass', null, InputOption::VALUE_OPTIONAL, 'Password of the database user.')
+			->addOption('database-table-prefix', null, InputOption::VALUE_OPTIONAL, 'Prefix for all tables (default: oc_).')
 			->addOption('admin-user', null, InputOption::VALUE_REQUIRED, 'User name of the admin account.', 'admin')
 			->addOption('admin-pass', null, InputOption::VALUE_REQUIRED, 'Password of the admin account.')
-			->addOption('data-dir', null, InputOption::VALUE_REQUIRED, 'Path to the data directory.', \OC::$SERVERROOT."/data");
+			->addOption('data-dir', null, InputOption::VALUE_REQUIRED, 'Path to the data directory.', \OC::$SERVERROOT. '/data');
 	}
 
 	protected function execute(InputInterface $input, OutputInterface $output) {
@@ -74,7 +75,7 @@ class Install extends Command {
 
 			// ignore the OS X setup warning
 			if (\count($errors) !== 1 ||
-				(string)($errors[0]['error']) !== 'Mac OS X is not supported and ownCloud will not work properly on this platform. Use it at your own risk! ') {
+				(string)$errors[0]['error'] !== 'Mac OS X is not supported and ownCloud will not work properly on this platform. Use it at your own risk! ') {
 				return 1;
 			}
 		}
@@ -83,12 +84,13 @@ class Install extends Command {
 		$options = $this->validateInput($input, $output, \array_keys($sysInfo['databases']));
 
 		// perform installation
+		$output->writeln('Starting with installation of ownCloud ....');
 		$errors = $setupHelper->install($options);
 		if (\count($errors) > 0) {
 			$this->printErrors($output, $errors);
 			return 1;
 		}
-		$output->writeln("ownCloud was successfully installed");
+		$output->writeln('ownCloud was successfully installed');
 		return 0;
 	}
 
@@ -108,6 +110,7 @@ class Install extends Command {
 		$dbUser = $input->getOption('database-user');
 		$dbPass = $input->getOption('database-pass');
 		$dbName = $input->getOption('database-name');
+		$dbConnectionString = $input->getOption('database-connection-string');
 		if ($db === 'oci') {
 			// an empty hostname needs to be read from the raw parameters
 			$dbHost = $input->getParameterOption('--database-host', '');
@@ -128,10 +131,10 @@ class Install extends Command {
 
 		if ($db !== 'sqlite') {
 			if ($dbUser === null) {
-				throw new InvalidArgumentException("Database user not provided.");
+				throw new InvalidArgumentException('Database user not provided.');
 			}
-			if ($dbName === null) {
-				throw new InvalidArgumentException("Database name not provided.");
+			if ($dbName === null && $dbConnectionString === null) {
+				throw new InvalidArgumentException('Database name and connection string not provided.');
 			}
 			if ($dbPass === null) {
 				/** @var $dialog \Symfony\Component\Console\Helper\QuestionHelper */
@@ -156,6 +159,7 @@ class Install extends Command {
 			'dbpass' => $dbPass,
 			'dbname' => $dbName,
 			'dbhost' => $dbHost,
+			'dbconnectionstring' => $dbConnectionString,
 			'dbtableprefix' => $dbTablePrefix,
 			'adminlogin' => $adminLogin,
 			'adminpass' => $adminPassword,
@@ -171,10 +175,10 @@ class Install extends Command {
 	protected function printErrors(OutputInterface $output, $errors) {
 		foreach ($errors as $error) {
 			if (\is_array($error)) {
-				$output->writeln('<error>' . (string)$error['error'] . '</error>');
-				$output->writeln('<info> -> ' . (string)$error['hint'] . '</info>');
+				$output->writeln('<error>' . $error['error'] . '</error>');
+				$output->writeln('<info> -> ' . $error['hint'] . '</info>');
 			} else {
-				$output->writeln('<error>' . (string)$error . '</error>');
+				$output->writeln('<error>' . $error . '</error>');
 			}
 		}
 	}

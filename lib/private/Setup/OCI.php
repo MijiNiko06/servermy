@@ -51,12 +51,11 @@ class OCI extends AbstractDatabase {
 
 	public function validate($config) {
 		$errors = [];
-		if (empty($config['dbuser']) && empty($config['dbname'])) {
-			$errors[] = $this->trans->t("%s enter the database username and name.", [$this->dbprettyname]);
-		} elseif (empty($config['dbuser'])) {
-			$errors[] = $this->trans->t("%s enter the database username.", [$this->dbprettyname]);
-		} elseif (empty($config['dbname'])) {
-			$errors[] = $this->trans->t("%s enter the database name.", [$this->dbprettyname]);
+		if (empty($config['dbuser'])) {
+			$errors[] = $this->trans->t('%s enter the database username.', [$this->dbprettyname]);
+		}
+		if (empty($config['dbname']) && empty($config['dbconnectionstring'])) {
+			$errors[] = $this->trans->t('%s enter the database name or connection string.', [$this->dbprettyname]);
 		}
 		return $errors;
 	}
@@ -65,10 +64,14 @@ class OCI extends AbstractDatabase {
 		$e_host = \addslashes($this->dbHost);
 		$e_dbname = \addslashes($this->dbName);
 		//check if the database user has admin right
-		if ($e_host == '') {
-			$easy_connect_string = $e_dbname; // use dbname as easy connect name
+		if ($this->dbConnectionString !== null) {
+			$easy_connect_string = $this->dbConnectionString;
 		} else {
-			$easy_connect_string = '//'.$e_host.'/'.$e_dbname;
+			if ($e_host == '') {
+				$easy_connect_string = $e_dbname; // use dbname as easy connect name
+			} else {
+				$easy_connect_string = '//'.$e_host.'/'.$e_dbname;
+			}
 		}
 		$this->logger->debug('connect string: ' . $easy_connect_string, ['app' => 'setup.oci']);
 		$connection = @\oci_connect($this->dbUser, $this->dbPassword, $easy_connect_string);
@@ -147,14 +150,6 @@ class OCI extends AbstractDatabase {
 		//$this->dbname = \OC_Config::getValue('dbname');
 		$this->dbPassword = $this->config->getSystemValue('dbpassword');
 
-		$e_host = \addslashes($this->dbHost);
-		$e_dbname = \addslashes($this->dbName);
-
-		if ($e_host == '') {
-			$easy_connect_string = $e_dbname; // use dbname as easy connect name
-		} else {
-			$easy_connect_string = '//'.$e_host.'/'.$e_dbname;
-		}
 		$connection = @\oci_connect($this->dbUser, $this->dbPassword, $easy_connect_string);
 		if (!$connection) {
 			throw new \OC\DatabaseSetupException($this->trans->t('Oracle username and/or password not valid'),

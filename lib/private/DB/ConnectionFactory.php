@@ -177,18 +177,23 @@ class ConnectionFactory {
 			$dataDir = $this->config->getValue("datadirectory", \OC::$SERVERROOT . '/data');
 			$connectionParams['path'] = $dataDir . '/' . $name . '.db';
 		} else {
-			$host = $this->config->getValue('dbhost', '');
-			if (\strpos($host, ':')) {
-				// Host variable may carry a port or socket.
-				list($host, $portOrSocket) = \explode(':', $host, 2);
-				if (\ctype_digit($portOrSocket)) {
-					$connectionParams['port'] = $portOrSocket;
-				} else {
-					$connectionParams['unix_socket'] = $portOrSocket;
+			$databaseConnectrionString = $this->config->getValue('dbconnectionstring', '');
+			if ($databaseConnectrionString !== '') {
+				$connectionParams['connectstring'] = $databaseConnectrionString;
+			} else {
+				$host = $this->config->getValue('dbhost', '');
+				if (\strpos($host, ':')) {
+					// Host variable may carry a port or socket.
+					list($host, $portOrSocket) = \explode(':', $host, 2);
+					if (\ctype_digit($portOrSocket)) {
+						$connectionParams['port'] = $portOrSocket;
+					} else {
+						$connectionParams['unix_socket'] = $portOrSocket;
+					}
 				}
+				$connectionParams['host'] = $host;
+				$connectionParams['dbname'] = $name;
 			}
-			$connectionParams['host'] = $host;
-			$connectionParams['dbname'] = $name;
 		}
 
 		$connectionParams['tablePrefix'] = $this->config->getValue('dbtableprefix', 'oc_');
