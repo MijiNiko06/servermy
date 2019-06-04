@@ -179,33 +179,40 @@
 			}
 			properties.permissions = defaultPermissions & possiblePermissions;
 
-			// FIXME: simplify the logic by merging and then filtering
-			// Set default attributes for this share based on registered
-			// attributes (filtered by their incompatible permissions)
-			var newShareAttributes = [];
-			var filteredRegisteredAttributes = this._filterRegisteredAttributes(properties.permissions);
-			_.map(filteredRegisteredAttributes, function(filteredRegisteredAttribute) {
-				var isCompatible = true;
-				// Check if this attribute can be added due to its incompatible attributes
-				_.map(filteredRegisteredAttribute.incompatibleAttributes, function(incompatibleAttribute) {
-					_.map(filteredRegisteredAttributes, function(checkAttr) {
-						if (incompatibleAttribute.scope === checkAttr.scope &&
-							incompatibleAttribute.key === checkAttr.key &&
-							incompatibleAttribute.enabled === checkAttr.default) {
-							isCompatible = false;
-						}
+			if (!options.shareAttributesApi || options.shareAttributesApi === 'v1') {
+				/**
+				 * Set default attributes for this share based on registered
+				 * attributes (filtered by their incompatible permissions)
+				 *
+				 * @deprecated ShareAttributesAPI v1 will be depreciated. ShareAttributesAPI v2 requires apps to overwrite addShare
+				 */
+				var newShareAttributes = [];
+				var filteredRegisteredAttributes = this._filterRegisteredAttributes(properties.permissions);
+				_.map(filteredRegisteredAttributes, function (filteredRegisteredAttribute) {
+					var isCompatible = true;
+					// Check if this attribute can be added due to its incompatible attributes
+					_.map(filteredRegisteredAttribute.incompatibleAttributes, function (incompatibleAttribute) {
+						_.map(filteredRegisteredAttributes, function (checkAttr) {
+							if (incompatibleAttribute.scope === checkAttr.scope &&
+								incompatibleAttribute.key === checkAttr.key &&
+								incompatibleAttribute.enabled === checkAttr.default) {
+								isCompatible = false;
+							}
+						});
 					});
-				});
 
-				if (isCompatible) {
-					newShareAttributes.push({
-						scope : filteredRegisteredAttribute.scope,
-						key: filteredRegisteredAttribute.key,
-						enabled: filteredRegisteredAttribute.default
-					});
-				}
-			});
-			properties.attributes = newShareAttributes;
+					if (isCompatible) {
+						newShareAttributes.push({
+							scope: filteredRegisteredAttribute.scope,
+							key: filteredRegisteredAttribute.key,
+							enabled: filteredRegisteredAttribute.default
+						});
+					}
+				});
+				properties.attributes = newShareAttributes;
+			} else if (options && options.shareAttributesApi === 'v2') {
+				// in share attributes api v2, properties.attributes is used directly
+			}
 
 			if (_.isUndefined(properties.path)) {
 				properties.path = this.fileInfoModel.getFullPath();
@@ -242,68 +249,75 @@
 			var self = this;
 			options = options || {};
 
-			// FIXME: simplify the logic by merging and then filtering
-			// Set share attributes for this share based on registered
-			// attributes (filtered by their incompatible permissions
-			// and incompatible attributes)
-			var newShareAttributes = [];
-			var filteredAttributes = [];
-			var filteredRegisteredAttributes = this._filterRegisteredAttributes(properties.permissions);
-			_.map(filteredRegisteredAttributes, function(filteredRegisteredAttribute) {
-				// Check if this allowed registered attribute
-				// is on the list of currently set properties,
-				// and set this attribute
-				var found = false;
-				_.map(properties.attributes, function(currentAttribute) {
-					if (currentAttribute.key === filteredRegisteredAttribute.key
-						&& currentAttribute.scope === filteredRegisteredAttribute.scope) {
-						found = true;
+			if (!options.shareAttributesApi || options.shareAttributesApi === 'v1') {
+				/**
+				 * Set share attributes for this share based on registered
+				 * attributes (filtered by their incompatible permissions
+				 * and incompatible attributes)
+				 *
+				 * @deprecated ShareAttributesAPI v1 will be depreciated. ShareAttributesAPI v2 requires apps to overwrite updateShare
+				 */
+				var newShareAttributes = [];
+				var filteredAttributes = [];
+				var filteredRegisteredAttributes = this._filterRegisteredAttributes(properties.permissions);
+				_.map(filteredRegisteredAttributes, function(filteredRegisteredAttribute) {
+					// Check if this allowed registered attribute
+					// is on the list of currently set properties,
+					// and set this attribute
+					var found = false;
+					_.map(properties.attributes, function(currentAttribute) {
+						if (currentAttribute.key === filteredRegisteredAttribute.key
+							&& currentAttribute.scope === filteredRegisteredAttribute.scope) {
+							found = true;
+							filteredAttributes.push({
+								scope : filteredRegisteredAttribute.scope,
+								key: filteredRegisteredAttribute.key,
+								incompatibleAttributes: filteredRegisteredAttribute.incompatibleAttributes,
+								enabled: currentAttribute.enabled
+							});
+						}
+					});
+
+					// Make sure allowed registered attributes which are
+					// not yet set are added. These can become available
+					// e.g. because of share permission/attr change
+					// and need to be initialized with their default value
+					if (!found) {
 						filteredAttributes.push({
 							scope : filteredRegisteredAttribute.scope,
 							key: filteredRegisteredAttribute.key,
 							incompatibleAttributes: filteredRegisteredAttribute.incompatibleAttributes,
-							enabled: currentAttribute.enabled
+							enabled: filteredRegisteredAttribute.default
 						});
 					}
 				});
 
-				// Make sure allowed registered attributes which are
-				// not yet set are added. These can become available
-				// e.g. because of share permission/attr change
-				// and need to be initialized with their default value
-				if (!found) {
-					filteredAttributes.push({
-						scope : filteredRegisteredAttribute.scope,
-						key: filteredRegisteredAttribute.key,
-						incompatibleAttributes: filteredRegisteredAttribute.incompatibleAttributes,
-						enabled: filteredRegisteredAttribute.default
+				_.map(filteredAttributes, function(filteredAttribute) {
+					// Filter attributes by their incompatible attributes
+					var isCompatible = true;
+					// Check if this attribute can be added due to its incompatible attributes
+					_.map(filteredAttribute.incompatibleAttributes, function(incompatibleAttribute) {
+						_.map(filteredAttributes, function(checkAttr) {
+							if (incompatibleAttribute.scope === checkAttr.scope &&
+								incompatibleAttribute.key === checkAttr.key &&
+								incompatibleAttribute.enabled === checkAttr.enabled) {
+								isCompatible = false;
+							}
+						});
 					});
-				}
-			});
 
-			_.map(filteredAttributes, function(filteredAttribute) {
-				// Filter attributes by their incompatible attributes
-				var isCompatible = true;
-				// Check if this attribute can be added due to its incompatible attributes
-				_.map(filteredAttribute.incompatibleAttributes, function(incompatibleAttribute) {
-					_.map(filteredAttributes, function(checkAttr) {
-						if (incompatibleAttribute.scope === checkAttr.scope &&
-							incompatibleAttribute.key === checkAttr.key &&
-							incompatibleAttribute.enabled === checkAttr.enabled) {
-							isCompatible = false;
-						}
-					});
+					if (isCompatible) {
+						newShareAttributes.push({
+							scope : filteredAttribute.scope,
+							key: filteredAttribute.key,
+							enabled: filteredAttribute.enabled
+						});
+					}
 				});
-
-				if (isCompatible) {
-					newShareAttributes.push({
-						scope : filteredAttribute.scope,
-						key: filteredAttribute.key,
-						enabled: filteredAttribute.enabled
-					});
-				}
-			});
-			properties.attributes = newShareAttributes;
+				properties.attributes = newShareAttributes;
+			} else if (options && options.shareAttributesApi === 'v2') {
+				// in share attributes api v2, properties.attributes is used directly
+			}
 
 			return $.ajax({
 				type: 'PUT',
@@ -908,6 +922,7 @@
 		 *
 		 * @param {number} permissions
 		 * @returns {OC.Share.Types.RegisteredShareAttribute[]}
+		 * @deprecated ShareAttributesAPI v1 registration will be depreciated. ShareAttributesAPI v2 requires apps to overwrite requires functions
 		 * @private
 		 */
 		_filterRegisteredAttributes: function(permissions) {
@@ -941,6 +956,7 @@
 		 * @param scope
 		 * @param key
 		 * @returns {OC.Share.Types.RegisteredShareAttribute}
+		 * @deprecated ShareAttributesAPI v1 registration will be depreciated. ShareAttributesAPI v2 requires apps to overwrite requires functions
 		 */
 		getRegisteredShareAttribute: function(scope, key) {
 			for(var i in this._registeredAttributes) {
@@ -960,6 +976,7 @@
 		 *   incompatible attribute -> functionality is ignored
 		 *
 		 * @param {OC.Share.Types.RegisteredShareAttribute} $shareAttribute
+		 * @deprecated ShareAttributesAPI v1 registration will be depreciated. ShareAttributesAPI v2 requires apps to overwrite requires functions
 		 */
 		registerShareAttribute: function($shareAttribute) {
 			// Add extra permission or update if already existing

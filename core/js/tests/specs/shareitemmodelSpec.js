@@ -686,7 +686,49 @@ describe('OC.Share.ShareItemModel', function() {
 
 		describe('new share', function() {
 
-			it('returns no attributes when no registered attributes', function () {
+			it('adds attributes if specified in shareAttributesApi v2', function () {
+				// define test
+				var permissionsToSet = OC.PERMISSION_READ | OC.PERMISSION_UPDATE | OC.PERMISSION_SHARE;
+
+				model.set({
+					permissions: permissionsToSet,
+					possiblePermissions: permissionsToSet
+				});
+
+				model.addShare(
+					{
+						shareType: OC.Share.SHARE_TYPE_USER,
+						shareWith: 'user2',
+						attributes: [
+							{ scope: "test", key: "test", enabled: false }
+						]
+					},
+					{
+						shareAttributesApi: 'v2'
+					}
+				);
+
+				// define expected result and test
+				expect(
+					parseLastRequestAttributes()
+				).toEqual([
+					{ scope: "test", key: "test", enabled: false }
+				]);
+			});
+
+			it('returns no attributes when no registered attributes in shareAttributesApi v1', function () {
+				// define test
+				var permissionsToSet = OC.PERMISSION_READ | OC.PERMISSION_UPDATE | OC.PERMISSION_SHARE;
+				var attributesToRegister = [];
+				var sharePropertiesToUpdate = {};
+
+				// define expected result and test
+				expect(
+					testShareWithAttributes(permissionsToSet, attributesToRegister, sharePropertiesToUpdate)
+				).toEqual([]);
+			});
+			
+			it('returns no attributes when no registered attributes in shareAttributesApi v1', function () {
 				// define test
 				var permissionsToSet = OC.PERMISSION_READ | OC.PERMISSION_UPDATE | OC.PERMISSION_SHARE;
 				var attributesToRegister = [];
@@ -698,7 +740,7 @@ describe('OC.Share.ShareItemModel', function() {
 				).toEqual([]);
 			});
 
-			it('uses registered attributes as default attributes', function () {
+			it('uses registered attributes as default attributes in shareAttributesApi v1', function () {
 				// define test
 				var permissionsToSet = OC.PERMISSION_READ | OC.PERMISSION_UPDATE | OC.PERMISSION_SHARE;
 				var attr1 = createRegisteredAttribute();
@@ -718,7 +760,7 @@ describe('OC.Share.ShareItemModel', function() {
 				).toEqual(attributesToExpect);
 			});
 
-			it('properly filters registered attributes', function () {
+			it('properly filters registered attributes in shareAttributesApi v1', function () {
 				var attr1 = createRegisteredAttribute();
 				attr1.key = "requires-create";
 				attr1.incompatiblePermissions = [];
@@ -791,7 +833,38 @@ describe('OC.Share.ShareItemModel', function() {
 		});
 
 		describe('update share', function() {
-			it('returns no attributes when update with new attribute but none registered (error handling scenario)', function() {
+			it('adds attributes if specified in shareAttributesApi v2', function () {
+				// define test
+				var permissionsToSet = OC.PERMISSION_READ | OC.PERMISSION_UPDATE | OC.PERMISSION_SHARE;
+
+				model.set({
+					permissions: permissionsToSet,
+					possiblePermissions: permissionsToSet
+				});
+
+				model.updateShare(
+					123,
+					{
+						shareType: OC.Share.SHARE_TYPE_USER,
+						shareWith: 'user2',
+						attributes: [
+							{ scope: "test", key: "test", enabled: false }
+						]
+					},
+					{
+						shareAttributesApi: 'v2'
+					}
+				);
+
+				// define expected result and test
+				expect(
+					parseLastRequestAttributes()
+				).toEqual([
+					{ scope: "test", key: "test", enabled: false }
+				]);
+			});
+
+			it('returns no attributes when update with new attribute but none registered (error handling scenario) in shareAttributesApi v1', function() {
 				// define test
 				var permissionsToSet = OC.PERMISSION_READ | OC.PERMISSION_UPDATE | OC.PERMISSION_SHARE;
 				var attributesToRegister = [];
@@ -808,7 +881,7 @@ describe('OC.Share.ShareItemModel', function() {
 				).toEqual([]);
 			});
 
-			it('updates attribute with new enabled value correctly', function() {
+			it('updates attribute with new enabled value correctly in shareAttributesApi v1', function() {
 				// define test
 				var permissionsToSet = OC.PERMISSION_READ | OC.PERMISSION_UPDATE | OC.PERMISSION_SHARE;
 
@@ -836,7 +909,7 @@ describe('OC.Share.ShareItemModel', function() {
 				).toEqual(attributesToExpect);
 			});
 
-			it('uses/hides attributes with permission filters of registered attributes', function() {
+			it('uses/hides attributes with permission filters of registered attributes in shareAttributesApi v1', function() {
 				// define test
 				var permissionsToSet = OC.PERMISSION_READ;
 
@@ -868,7 +941,7 @@ describe('OC.Share.ShareItemModel', function() {
 				).toEqual(attributesToExpect);
 			});
 
-			it('uses/hides attributes with attribute filter of registered attributes when permission changes', function() {
+			it('uses/hides attributes with attribute filter of registered attributes when permission changes in shareAttributesApi v1', function() {
 				// define test
 				var permissionsToSet = OC.PERMISSION_READ | OC.PERMISSION_UPDATE;
 

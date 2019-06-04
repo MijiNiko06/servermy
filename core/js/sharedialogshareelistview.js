@@ -121,6 +121,7 @@
 		},
 
 		/**
+		 * @deprecated ShareAttributesAPI v1 will be depreciated. ShareAttributesAPI v2 requires apps to customize function calls
 		 * @param shareIndex
 		 * @returns {object}
 		 */
@@ -155,12 +156,6 @@
 						name: attribute.key,
 						label: regAttr.label
 					});
-				} else {
-					OC.Notification.showTemporary(t('core', 'Share with ' +
-						'user {shareWith} has attribute {name} which is ' +
-						'no longer available. Please recreate the share!',
-						{ name: attribute.key, shareWith: shareWith })
-					);
 				}
 			});
 
@@ -336,7 +331,9 @@
 				permissions |= $(checkbox).data('permissions');
 			});
 
-			// Check extra share permissions
+			/**
+			 * @deprecated ShareAttributesAPI v1 will be depreciated. ShareAttributesAPI v2 requires apps to overwrite addShare/updateShare
+			 */
 			var attributes = [];
 			$('.attributes', $li).each(function(index, checkbox) {
 				var checked = $(checkbox).is(':checked');
@@ -348,7 +345,11 @@
 				});
 			});
 
-			this.model.updateShare(shareId, {permissions: permissions, attributes: attributes});
+			this.model.updateShare(
+				shareId,
+				{permissions: permissions, attributes: attributes},
+				{shareAttributesApi: 'v1'}
+			);
 		},
 
 		onCrudsToggle: function(event) {

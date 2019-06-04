@@ -355,18 +355,22 @@
 			$loading.removeClass('hidden')
 				.addClass('inlineblock');
 
-			this.model.addShare(s.item.value, {success: function() {
-				$(e.target).val('')
-					.attr('disabled', false);
-				$loading.addClass('hidden')
-					.removeClass('inlineblock');
-			}, error: function(obj, msg) {
-				OC.Notification.showTemporary(msg);
-				$(e.target).attr('disabled', false)
-					.autocomplete('search', $(e.target).val());
-				$loading.addClass('hidden')
-					.removeClass('inlineblock');
-			}});
+			this.model.addShare(s.item.value, {
+				shareAttributesApi: 'v1',
+				success: function() {
+					$(e.target).val('')
+						.attr('disabled', false);
+					$loading.addClass('hidden')
+						.removeClass('inlineblock');
+				},
+				error: function(obj, msg) {
+					OC.Notification.showTemporary(msg);
+					$(e.target).attr('disabled', false)
+						.autocomplete('search', $(e.target).val());
+					$loading.addClass('hidden')
+						.removeClass('inlineblock');
+				}
+			});
 		},
 
 		_toggleLoading: function(state) {
