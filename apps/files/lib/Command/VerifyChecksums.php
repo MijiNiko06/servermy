@@ -24,6 +24,7 @@ namespace OCA\Files\Command;
 use OC\Files\FileInfo;
 use OC\Files\Storage\FailedStorage;
 use OC\Files\Storage\Wrapper\Checksum;
+use OC\User\NoUserException;
 use OCA\Files_Sharing\ISharedStorage;
 use OCP\Files\IRootFolder;
 use OCP\Files\Node;
@@ -148,8 +149,23 @@ class VerifyChecksums extends Command {
 			$this->exitStatus = self::EXIT_INVALID_ARGS;
 		} elseif ($input->getOption('path')) {
 			try {
-				$node = $this->rootFolder->get($input->getOption('path'));
+				if ($input->getOption('path')[0] === '/') {
+					list(, $user, , $userPath) = \explode("/", $input->getOption('path'), 4);
+				} else {
+					list($user, , $userPath) = \explode("/", $input->getOption('path'), 3);
+				}
+
+				if ($userPath !== null) {
+					$userFolder = $this->rootFolder->getUserFolder($user);
+					$node = $userFolder->get($userPath);
+				} else {
+					$node = $this->rootFolder->get($input->getOption('path'));
+				}
 			} catch (NotFoundException $ex) {
+				$output->writeln("<error>Path \"{$ex->getMessage()}\" not found.</error>");
+				$this->exitStatus = self::EXIT_INVALID_ARGS;
+				return $this->exitStatus;
+			} catch (NoUserException $ex) {
 				$output->writeln("<error>Path \"{$ex->getMessage()}\" not found.</error>");
 				$this->exitStatus = self::EXIT_INVALID_ARGS;
 				return $this->exitStatus;

@@ -268,6 +268,19 @@ class VerifyChecksumsTest extends TestCase {
 		]);
 
 		$this->assertEquals(self::BROKEN_CHECKSUM_STRING, $file4->getChecksum());
+
+		$this->breakChecksum($file1);
+		$this->breakChecksum($file2);
+
+		$this->cmd->execute([
+			'-r' => null,
+			'-p' => "/{$this->user1}/files/dir/nested"
+		]);
+
+		$this->assertChecksumsAreCorrect([
+			$this->testFiles[0],
+			$this->testFiles[1],
+		]);
 	}
 
 	public function testOnlyFilesOfAGivenUserAreRepaired() {
